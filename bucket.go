@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -16,15 +18,16 @@ const maxRandom int = 999
 
 func main() {
 	nums = randomArray(arraySize)
-	fmt.Println("Numero de cubetas:")
-	var n int
+	n, e := strconv.Atoi(os.Args[1])
+	exitOnError(e)
 	port := 2000
-	fmt.Scanf("%d", &n)
+
 	if n >= 3500 {
 		n = 3500
 	} else if n <= 0 {
 		n = 1
 	}
+	fmt.Println("Numero de cubetas:", n)
 	buckets := makeBuckets(n)
 	sortedNums := make([]int16, 0)
 	var wg sync.WaitGroup
