@@ -12,9 +12,11 @@ import (
 )
 
 var nums []int16
+var conectionsOrder map[int][]int16 = make(map[int][]int16)
+var mutex sync.RWMutex = sync.RWMutex{}
 
 const arraySize int = 3500
-const maxRandom int = 999
+const maxRandom int = 1000
 
 func main() {
 	nums = randomArray(arraySize)
@@ -31,12 +33,11 @@ func main() {
 	buckets := makeBuckets(n)
 	sortedNums := make([]int16, 0)
 	var wg sync.WaitGroup
-	bcn := make(chan []int16)
+
 	for i := 0; i < n; i++ {
 		var counter int
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, i int, bucket []int16) {
-			//fmt.Println("goroutine:", i)
 			nport := fmt.Sprintf("localhost:%d", (port + counter))
 
 			serv, errs := net.Listen("tcp", nport)
@@ -52,16 +53,20 @@ func main() {
 			conc, errc := net.Dial("tcp", nport)
 			exitOnError(errc)
 			wg.Add(1)
-			go handleClient(wg, conc, nport, bucket, bcn, i)
-			select {
-			case b := <-bcn:
-				sortedNums = append(sortedNums, b...)
-			}
+			go handleClient(wg, conc, nport, bucket, i)
 			defer wg.Done()
 			counter++
 		}(&wg, i, buckets[i])
 	}
 	wg.Wait()
+	keys := make([]int, 0)
+	for k := range conectionsOrder {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for _, k := range keys {
+		sortedNums = append(sortedNums, conectionsOrder[k]...)
+	}
 	fmt.Println("Sorted Array:", sortedNums)
 }
 
@@ -144,9 +149,9 @@ func handleServer(wg *sync.WaitGroup, serv net.Listener, port string) {
 	defer wg.Done()
 }
 
-func handleClient(wg *sync.WaitGroup, conc net.Conn, port string, bucket []int16, bcn chan []int16, n int) {
+func handleClient(wg *sync.WaitGroup, conc net.Conn, port string, bucket []int16, n int) {
 	fmt.Println("Client", port)
-	fmt.Println("Bucket client:", bucket)
+	fmt.Println("Bucket client", n, ":", bucket)
 	byteBucket := shortsToBytes(bucket)
 	size := shortToBytes(int16(len(byteBucket)))
 	conc.Write(size)
@@ -154,8 +159,10 @@ func handleClient(wg *sync.WaitGroup, conc net.Conn, port string, bucket []int16
 	conc.Read(byteBucket)
 	sortedBucket := bytesToShorts(byteBucket)
 	fmt.Println("Bucket sorted from server:", sortedBucket)
-	time.Sleep((time.Second * time.Duration(n)) / 1000)
-	bcn <- sortedBucket
+	time.Sleep(time.Second)
+	mutex.Lock()
+	conectionsOrder[n] = sortedBucket
+	mutex.Unlock()
 	defer wg.Done()
 }
 
