@@ -12,7 +12,8 @@ import (
 )
 
 var nums []int16
-var conectionsOrder map[int][]int16 = make(map[int][]int16)
+
+var dataClient [][]int16
 var mutex sync.RWMutex = sync.RWMutex{}
 
 const arraySize int = 3500
@@ -30,6 +31,7 @@ func main() {
 		n = 1
 	}
 	fmt.Println("Numero de cubetas:", n)
+	dataClient = make([][]int16, n)
 	buckets := makeBuckets(n)
 	sortedNums := make([]int16, 0)
 	var wg sync.WaitGroup
@@ -59,13 +61,9 @@ func main() {
 		}(&wg, i, buckets[i])
 	}
 	wg.Wait()
-	keys := make([]int, 0)
-	for k := range conectionsOrder {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-	for _, k := range keys {
-		sortedNums = append(sortedNums, conectionsOrder[k]...)
+
+	for _, v := range dataClient {
+		sortedNums = append(sortedNums, v...)
 	}
 	fmt.Println("Sorted Array:", sortedNums)
 }
@@ -161,7 +159,7 @@ func handleClient(wg *sync.WaitGroup, conc net.Conn, port string, bucket []int16
 	fmt.Println("Bucket sorted from server:", sortedBucket)
 	time.Sleep(time.Second)
 	mutex.Lock()
-	conectionsOrder[n] = sortedBucket
+	dataClient[n] = sortedBucket
 	mutex.Unlock()
 	defer wg.Done()
 }
